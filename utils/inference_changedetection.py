@@ -68,7 +68,10 @@ def load_jit_model(MODEL_PATH, device, MODEL_CFG=None, half_infer=False):
     print("---------start load_model!------------------")
     print(MODEL_PATH)
     if MODEL_CFG is not None:
-        import hydra
+        try:
+            import hydra
+        except ImportError:
+            print("hydra is not installed")
         abspath = os.path.abspath(__file__)
         dname = os.path.dirname((abspath))
         dname = os.path.dirname((dname))
@@ -96,7 +99,10 @@ def load_jit_model(MODEL_PATH, device, MODEL_CFG=None, half_infer=False):
 
 @get_time("load model")
 def load_model(MODEL_CFG, MODEL_PATH, device, half_infer=False):
-    import hydra
+    try:
+        import hydra
+    except ImportError:
+        print("hydra is not installed")
     print("---------start load_model!------------------")
     config = OmegaConf.load(MODEL_CFG)
     config.model.Config.MODEL.pretrained = None

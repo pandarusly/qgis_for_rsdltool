@@ -23,6 +23,8 @@
 """
 import os.path
 import tempfile
+from typing import Union, List
+
 
 from PyQt5.QtCore import QThread
 # Initialize Qt resources from file resources.py
@@ -32,11 +34,11 @@ from PyQt5.QtWidgets import (
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.core import (
-    QgsProject, QgsVectorLayer, QgsRasterLayer, Qgis, QgsMessageLog
+    QgsProject, QgsVectorLayer, QgsRasterLayer, Qgis, QgsMessageLog, QgsGeometry, QgsCoordinateReferenceSystem,QgsFeature,QgsMapLayer, QgsDistanceArea
 )
 from qgis.gui import QgsFileWidget
 
-from . import config
+from . import helpers, config
 from .RsDlTool_dialog import RSDlToolDialog
 from .workers import SplittingCreator, DetectionCreator
 from .resources import *
@@ -146,6 +148,92 @@ class RSDlTool:
             layer = QgsVectorLayer(path, os.path.splitext(os.path.basename(path))[0]+"_{}".format(os.urandom(2).hex()))
         self.project.addMapLayer(layer)
         self.dlg.vDSMaskCombo.setLayer(layer)
+
+    def calculate_aoi_area_polygon_layer(self, layer: Union[QgsVectorLayer, None]) -> None:
+        """Get the AOI size total when polygon another layer is chosen,
+        current layer's selection is changed or the layer's features are modified.
+
+        :param layer: The current polygon layer
+        """
+        if not self.dlg.checkBoxMask.isChecked():  # GeoTIFF extent used; no difference
+            self.calculate_aoi_area_raster(self.dlg.rDSACombo.currentLayer())
+            return
+        if layer and layer.featureCount() > 0:
+            features = list(layer.getSelectedFeatures()) or list(layer.getFeatures())
+            if len(features) == 1:
+                aoi = features[0].geometry()
+            else:
+                aoi = QgsGeometry.collectGeometry([feature.geometry() for feature in features])
+            self.calculate_aoi_area(aoi, layer.crs())
+        else:  # empty layer or combo's itself is empty
+            self.dlg.labelAoiArea.clear()
+            self.aoi = self.aoi_size = None
+
+    def calculate_aoi_area_raster(self, layer: Union[QgsRasterLayer, None]) -> None:
+        """Get the AOI size when a new entry in the raster combo box is selected.
+
+        :param layer: The current raster layer
+        """
+        if layer:
+            geometry = QgsGeometry.collectGeometry([QgsGeometry.fromRect(layer.extent())])
+            self.calculate_aoi_area(geometry, layer.crs())
+        else:
+            self.calculate_aoi_area_polygon_layer(self.dlg.vDSMaskCombo.currentLayer())
+
+    def calculate_aoi_area_use_image_extent(self, use_image_extent: bool) -> None:
+        """Get the AOI size when the Use image extent checkbox is toggled.
+
+        :param use_image_extent: The current state of the checkbox
+        """
+        if not use_image_extent:
+            self.calculate_aoi_area_raster(self.dlg.rDSACombo.currentLayer())
+        else:
+            self.calculate_aoi_area_polygon_layer(self.dlg.vDSMaskCombo.currentLayer())
+
+    def calculate_aoi_area_selection(self, _: List[QgsFeature]) -> None:
+        """Get the AOI size when the selection changed on a polygon layer.
+
+        :param _: A list of currently selected features
+        """
+        layer = self.dlg.vDSMaskCombo.currentLayer()
+        if layer == self.iface.activeLayer():
+            self.calculate_aoi_area_polygon_layer(layer)
+
+    def calculate_aoi_area_layer_edited(self) -> None:
+        # 暂时不用
+        """Get the AOI size when a feature is added or remove from a layer."""
+        layer = self.sender() # bug
+        if layer == self.dlg.vDSMaskCombo.currentLayer():
+            self.calculate_aoi_area_polygon_layer(layer)
+
+    def calculate_aoi_area(self, aoi: QgsGeometry, crs: QgsCoordinateReferenceSystem) -> None:
+        """Display the AOI size in sq.km.
+
+        :param aoi: the processing area.
+        :param crs: the CRS of the processing area.
+        """
+        if crs != helpers.WGS84:
+            aoi = helpers.to_wgs84(aoi, crs)
+        self.aoi = aoi  # save for reuse in processing creation or metadata requests
+        # Set ellipsoid to calculate on sphere if the CRS is geographic
+        self.calculator.setEllipsoid(helpers.WGS84_ELLIPSOID)
+        self.calculator.setSourceCrs(helpers.WGS84, self.project.transformContext())
+        self.aoi_size = self.calculator.measureArea(aoi) / 10 ** 6  # sq. m to sq.km
+        self.dlg.labelAoiArea.setText(self.tr('Area: {:.2f} sq.km').format(self.aoi_size))
+
+    def monitor_polygon_layer_feature_selection(self, layers: List[QgsMapLayer]) -> None:
+        """Set up connection between feature selection in polygon layers and AOI area calculation.
+
+        Since the plugin allows using a single feature withing a polygon layer as an AOI for processing,
+        its area should then also be calculated and displayed in the UI, just as with a single-featured layer.
+        For every polygon layer added to the project, this function sets up a signal-slot connection for
+        monitoring its feature selection by passing the changes to calculate_aoi_area().
+
+        :param layers: A list of layers of any type (all non-polygon layers will be skipped)
+        """
+        for layer in filter(helpers.is_polygon_layer, layers):
+            layer.selectionChanged.connect(self.calculate_aoi_area_selection)
+            # layer.editingStopped.connect(self.calculate_aoi_area_layer_edited)
 
     def alert(self, message: str, kind: str = 'information') -> None:
         """Display an interactive modal pop up.
@@ -430,6 +518,16 @@ class RSDlTool:
 
             self.project = QgsProject.instance()  # 用self.project 代替 QgsProject..instance()
             self.dlg = RSDlToolDialog()
+            # Calculate AOI size
+            self.calculator = QgsDistanceArea()
+            self.dlg.vDSMaskCombo.layerChanged.connect(self.calculate_aoi_area_polygon_layer)
+            self.dlg.rDSACombo.layerChanged.connect(self.calculate_aoi_area_raster)
+            self.dlg.checkBoxMask.toggled.connect(self.calculate_aoi_area_use_image_extent)
+            # self.dlg.checkBoxMask.toggled.connect(self.calculate_aoi_area_use_image_extent)
+            self.monitor_polygon_layer_feature_selection([
+                self.project.mapLayer(layer_id) for layer_id in self.project.mapLayers(validOnly=True)
+            ])
+            self.project.layersAdded.connect(self.monitor_polygon_layer_feature_selection)
             # Connect buttons
             self.dlg.selectRDSA.clicked.connect(self.select_tif1_dataset)
             self.dlg.selectRDSB.clicked.connect(self.select_tif2_dataset)

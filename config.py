@@ -1,0 +1,21 @@
+PLUGIN_NAME = "RSDLTool"
+InferConfig = dict(
+    MODEL_CFG=None,
+    model=None,
+    MODEL_PATH=r"F:\study-note\python-note\Advance_py\DLDEV\Task-36869338\代码截图\代码截图\论文代码\mmchange\huanjing_mixuper.pt",
+    PRE_IMG=r"E:\矿大数据\论文\中心材料\雄安变化检测数据集制作\数据\测试数据\A_clip.tif",
+    POST_IMG=r"E:\矿大数据\论文\中心材料\雄安变化检测数据集制作\数据\测试数据\B_clip.tif",
+    SAVE_SHP=True,
+    SAVE_PNG=True,
+    HalfINFER=True,
+    STRIDE_SIZE=512,
+    BLOCKSIZE=512,
+    BATCHSIZE=1,
+    USECUDA=True,
+    MUTI=True,
+    WEIGHT='pyramid',  # mean
+    PNAME=r'E:\矿大数据\论文\中心材料\雄安变化检测数据集制作\数据\测试数据\推理测试\predict_huanjing2',
+    maxval=255,
+    PolyDP=1,
+    simplify_ratiao=1
+    )

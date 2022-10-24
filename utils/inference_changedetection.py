@@ -10,7 +10,8 @@ from osgeo import ogr
 from osgeo import osr
 from torch.utils.data import DataLoader
 
-from .msic import (to_numpy, TileMerger, ImageSlicer, image_to_tensor, get_time, to_2tuple)
+from .msic import (to_numpy, TileMerger, ImageSlicer,
+                   image_to_tensor, get_time, to_2tuple)
 
 
 @get_time("cv2_post_deal")
@@ -76,8 +77,12 @@ def load_jit_model(MODEL_PATH, device, MODEL_CFG=None, half_infer=False):
         dname = os.path.dirname((abspath))
         dname = os.path.dirname((dname))
         sys.path.append(dname)
+        print(dname)
         # MODEL_CFG['Config']['MODEL']['pretrained'] = None
-        MODEL_CFG['Config']['MODEL']['backbone']['init_cfg'] = None
+        if MODEL_CFG['Config']['MODEL'].get('backbone'):
+            MODEL_CFG['Config']['MODEL']['backbone']['init_cfg'] = None
+        else:
+            MODEL_CFG['Config']['MODEL']['pretrained'] = None
         model = hydra.utils.instantiate(MODEL_CFG, _convert_="all")
         ckpt = torch.load(MODEL_PATH, map_location=device)
         if isinstance(ckpt, dict):
@@ -107,7 +112,8 @@ def load_model(MODEL_CFG, MODEL_PATH, device, half_infer=False):
     config = OmegaConf.load(MODEL_CFG)
     config.model.Config.MODEL.pretrained = None
     model = hydra.utils.instantiate(config.model, _convert_="all")
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=device)["state_dict"])
+    model.load_state_dict(torch.load(
+        MODEL_PATH, map_location=device)["state_dict"])
     if half_infer:
         model.half()
     model.to(device)
@@ -125,10 +131,15 @@ def batch_forward(model, tiles_batch, device, half_infer=False):
         tiles_batch = tiles_batch.half()
 
     with torch.no_grad():
-        seg_score = model(tiles_batch[:, 0], tiles_batch[:, 1])
+        if tiles_batch.shape[1] == 2:
+
+            seg_score = model(tiles_batch[:, 0], tiles_batch[:, 1])
+        else:
+            seg_score = model(tiles_batch)
+
         # predict label
         if isinstance(seg_score, list):
-            ort_outs = seg_score[-1].argmax(1)
+            ort_outs = seg_score[0].argmax(1)
         else:
             ort_outs = seg_score.argmax(1)
         ort_outs = ort_outs.unsqueeze(1)
@@ -172,10 +183,13 @@ def gdal_cd_inference(RSImage, RSImage_another, model,
     # ##############################
     # # inference block by block   #
     # ##############################
-    tiler, tiles1, width, height, source_config = get_tiles(RSImage, blockSize, strideSize, weight)
+    tiler, tiles1, width, height, source_config = get_tiles(
+        RSImage, blockSize, strideSize, weight)
     if os.path.exists(RSImage_another):
-        _, tiles2, _, _, _ = get_tiles(RSImage_another, blockSize, strideSize, weight)
-        tiles = [torch.stack([t1, t2], dim=0) for t1, t2 in zip(tiles1, tiles2)]
+        _, tiles2, _, _, _ = get_tiles(
+            RSImage_another, blockSize, strideSize, weight)
+        tiles = [torch.stack([t1, t2], dim=0)
+                 for t1, t2 in zip(tiles1, tiles2)]
         datamodule = DataLoader(list(zip(tiles, tiler.crops)),
                                 batch_size=batch_size, pin_memory=True)
     else:
@@ -187,7 +201,8 @@ def gdal_cd_inference(RSImage, RSImage_another, model,
     merger = TileMerger(tiler.target_shape, 1, tiler.weight, device=device)
     for tiles_batch, coords_batch in datamodule:
         print('processing {}/{} batchs ...'.format(idx + 1, nums))
-        ort_outs = batch_forward(model=model, tiles_batch=tiles_batch, device=device, half_infer=half_infer)
+        ort_outs = batch_forward(
+            model=model, tiles_batch=tiles_batch, device=device, half_infer=half_infer)
         merger.integrate_batch(ort_outs, coords_batch)
         idx += 1
     # -------------------------- 合并
@@ -215,9 +230,11 @@ def full_flow(cfg):
     RSImage = cfg["PRE_IMG"]
     RSImage_another = cfg["POST_IMG"]
 
-    assert isinstance(RSImage, (list, tuple)), "RSImage : {} Not List".format(RSImage)
+    assert isinstance(RSImage, (list, tuple)
+                      ), "RSImage : {} Not List".format(RSImage)
     # assert isinstance(RSImage_another, (list, tuple)), "RSImage_another : {} Not List".format(RSImage)
-    assert isinstance(cfg["PNAME"], (list, tuple)), "PNAME : {} Not List".format(cfg["PNAME"])
+    assert isinstance(cfg["PNAME"], (list, tuple)
+                      ), "PNAME : {} Not List".format(cfg["PNAME"])
 
     # print("pre_img :{}\n".format(RSImage))
     # print("post_img :{}\n".format(RSImage_another))
@@ -242,14 +259,16 @@ def full_flow(cfg):
         device = 'cpu'
     print("device:{}\n".format(device))
 
-    model, device = load_jit_model(MODEL_PATH, device, MODEL_CFG, half_infer=half_infer)
+    model, device = load_jit_model(
+        MODEL_PATH, device, MODEL_CFG, half_infer=half_infer)
     print("use batch inference!!!\n")
+    # print("{},{}!!!\n".format(RSImage, RSImage_another))
 
     if RSImage_another is None:
         RSImage_another = ["" for ra in RSImage]
 
     for RSImage_, RSImage_another_, PNAME in zip(RSImage, RSImage_another, cfg["PNAME"]):
-        print(RSImage_another_)
+        # print(RSImage_another_)
         mem_ds = gdal_cd_inference(RSImage=RSImage_, RSImage_another=RSImage_another_,
                                    model=model, blockSize=blockSize, strideSize=strideSize, device=device,
                                    batch_size=batch_size, weight=weight, half_infer=half_infer)
@@ -265,8 +284,9 @@ def full_flow(cfg):
         if cfg["SAVE_PNG"]:
             print("---------start save png!-----------------")
             merged = mem_ds.ReadAsArray()
-            merged = cv2_post_deal(merged, maxval=cfg['maxval'], PolyDP=cfg['PolyDP'])
-            # mem_ds.GetRasterBand(1).WriteArray(merged)
+            merged = cv2_post_deal(
+                merged, maxval=cfg['maxval'], PolyDP=cfg['PolyDP'])
+            mem_ds.GetRasterBand(1).WriteArray(merged)
             # drv = gdal.GetDriverByName("PNG")
             # dst_ds = drv.CreateCopy(PNGPATH, mem_ds)
             # dst_ds = None
@@ -276,7 +296,8 @@ def full_flow(cfg):
         if cfg["SAVE_SHP"]:
             # ----------------------------- polygonized
             simp_dst_shpfile = SHPPATH + '_simplyfie.shp'
-            polygonized(mem_ds, dst_shpfile, simp_dst_shpfile, simplify_ratiao=cfg['simplify_ratiao'])
+            polygonized(mem_ds, dst_shpfile, simp_dst_shpfile,
+                        simplify_ratiao=cfg['simplify_ratiao'])
 
 
 if __name__ == '__main__':
@@ -314,7 +335,8 @@ if __name__ == '__main__':
             user_conf = OmegaConf.load(config_fn)
             conf = OmegaConf.merge(cfg, user_conf)
         else:
-            raise FileNotFoundError(f"config_file={config_fn} is not a valid file")
+            raise FileNotFoundError(
+                f"config_file={config_fn} is not a valid file")
 
     cfg = OmegaConf.to_object(OmegaConf.merge(  # Merge in any arguments passed via the command line
         cfg, command_line_conf

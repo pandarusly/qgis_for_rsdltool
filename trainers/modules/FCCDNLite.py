@@ -1,28 +1,13 @@
-import torch.distributed as dist
-from collections import OrderedDict
 from abc import ABC
-
+from collections import OrderedDict
 from typing import Any, Dict
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from omegaconf import OmegaConf, DictConfig
 from pytorch_lightning.core.lightning import LightningModule
 from torch.utils.data import DataLoader, Dataset
- 
-from benchmarks.ChangeFormer import resize
-
-
-# global_step ,global_step
-from trainers.utils.lr_scheduler_torch import build_scheduler
-from trainers.utils.optimizer import build_optimizer
-from torchmetrics import (MetricCollection, Accuracy,
-                          FBetaScore, Precision, Recall)
-from benchmarks.FCCDN import FCCDN
-from benchmarks.losses import CrossEntropyLoss
-from benchmarks.losses.change_loss import ChangeLoss
-
-from trainers.utils.binary import ConfuseMatrixMeter
 from torchmetrics import (
     MetricCollection,
     Accuracy,
@@ -31,7 +16,14 @@ from torchmetrics import (
     Recall,
 )
 
-from trainers.utils.weight_init import init_weights
+from benchmarks.ChangeFormer import resize
+from benchmarks.FCCDN import FCCDN
+from benchmarks.losses.change_loss import ChangeLoss
+from trainers.utils.binary import ConfuseMatrixMeter
+# global_step ,global_step
+from trainers.utils.lr_scheduler_torch import build_scheduler
+from trainers.utils.optimizer import build_optimizer
+
 
 # ----
 

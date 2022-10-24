@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from einops.layers.torch import Rearrange
+from einops.layers.torch import Rearrange
 
 from benchmarks._builder import CHANGES
 
@@ -98,7 +98,7 @@ class densecat_cat_diff_cp(nn.Module):
 
 
 # ------------------- dw_diff
-# from timm.models.layers import DropPath
+from timm.models.layers import DropPath
 
 
 class LayerNorm(nn.Module):

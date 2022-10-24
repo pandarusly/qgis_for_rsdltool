@@ -105,13 +105,16 @@ class RSDlToolDialog(QtWidgets.QDialog, FORM_CLASS):
         self.checkBoxMutiCls.setEnabled(False)
         self.mQfwDataset_ClassCfg.setEnabled(False)
         self.checkBoxSB_2.stateChanged.connect(lambda is_checked: self.checkBoxSB.setEnabled(is_checked))
-        self.checkBoxSB_2.stateChanged.connect(lambda is_checked: self.vDSCombo.setEnabled(is_checked))
-        self.checkBoxSB_2.stateChanged.connect(lambda is_checked: self.selectVDS.setEnabled(is_checked))
+        self.checkBoxSB_2.stateChanged.connect(lambda is_checked: self.vDSCombo.setEnabled(is_checked)) if not self.checkBoxMutiCls_2.isChecked() else None
+        self.checkBoxSB_2.stateChanged.connect(lambda is_checked: self.selectVDS.setEnabled(is_checked)) if not self.checkBoxMutiCls_2.isChecked() else None
         self.checkBoxSB_2.stateChanged.connect(lambda is_checked: self.mQgsFileWidget_V.setEnabled(is_checked) if self.useBatchCheck.isChecked() else None)
         self.checkBoxMutiCls_2.stateChanged.connect(
             lambda is_checked: self.checkBoxMutiCls.setEnabled(is_checked))
         self.checkBoxMutiCls_2.stateChanged.connect(
             lambda is_checked: self.mQfwDataset_ClassCfg.setEnabled(is_checked))
+        self.checkBoxMutiCls_2.stateChanged.connect(lambda is_checked: self.mQgsFileWidget_V.setEnabled(is_checked) if self.useBatchCheck.isChecked() else None)
+        self.checkBoxMutiCls_2.stateChanged.connect(lambda is_checked: self.selectVDS.setEnabled(is_checked))
+        self.checkBoxMutiCls_2.stateChanged.connect(lambda is_checked: self.vDSCombo.setEnabled(is_checked))
 
     def close_batch_processing(self, is_checked):
         if self.useChangeCheck.isChecked():

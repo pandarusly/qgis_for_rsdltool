@@ -25,7 +25,8 @@ class MMCHANGE(LightningModule, ABC):
         super().__init__()
 
         Config = OmegaConf.create(Config)
-        self.save_hyperparameters(Config, logger=HPARAMS_LOG)  # True在hydra下运行不起来
+        self.save_hyperparameters(
+            Config, logger=HPARAMS_LOG)  # True在hydra下运行不起来
         self.lr = self.hparams.TRAIN.BASE_LR
         self.example_input_array = (
             torch.randn(*example_input_array),
@@ -43,7 +44,7 @@ class MMCHANGE(LightningModule, ABC):
         if isinstance(model, DictConfig):
             model = OmegaConf.to_object(model)
         self.model = build_segmentor(model)
-        self.model.init_weights()
+        # self.model.init_weights()
         self.num_classes = self.model.num_classes
 
     def _finetue(self, ckpt_path):
@@ -69,7 +70,7 @@ class MMCHANGE(LightningModule, ABC):
 
     def configure_optimizers(self):
         optimizer = build_optimizer(self.hparams, self.parameters())
-        scheduler = build_scheduler(self.hparams, optimizer=optimizer)
+        scheduler = build_scheduler(self.hparams, optimizer)
         # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.8, patience=2)
         # return {
         #     "optimizer": optimizer,

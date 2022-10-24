@@ -310,7 +310,7 @@ def lecun_normal_(tensor):
 # from models.help_funcs import TwoLayerConv2d, save_to_mat
 import torch.nn.functional as F
 
-# from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 import math
 
 

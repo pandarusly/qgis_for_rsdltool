@@ -6,17 +6,14 @@
 import math
 import warnings
 from functools import partial
-# from einops.layers.torch import Rearrange
+from einops.layers.torch import Rearrange
 
 import torch
 import torch.nn as nn
 from mmcv.cnn.utils.weight_init import constant_init, normal_init, trunc_normal_init
 from mmcv.runner import BaseModule
-# from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 import torch.nn.functional as F
-
-from benchmarks.ChangeFormer import to_2tuple, trunc_normal_,DropPath
-
 from ._builder import *
 
 
@@ -124,7 +121,7 @@ class Attention(nn.Module):
     ):
         super().__init__()
         assert (
-                dim % num_heads == 0
+            dim % num_heads == 0
         ), f"dim {dim} should be divided by num_heads {num_heads}."
 
         self.dim = dim
@@ -140,7 +137,8 @@ class Attention(nn.Module):
 
         self.sr_ratio = sr_ratio
         if sr_ratio > 1:
-            self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
+            self.sr = nn.Conv2d(
+                dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
             self.norm = nn.LayerNorm(dim)
 
         self.apply(self._init_weights)
@@ -223,7 +221,8 @@ class Block(nn.Module):
             sr_ratio=sr_ratio,
         )
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
-        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.drop_path = DropPath(
+            drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(
@@ -467,14 +466,17 @@ class MixVisionTransformer(BaseModule):
                 elif isinstance(m, nn.LayerNorm):
                     constant_init(m, val=1.0, bias=0.0)
                 elif isinstance(m, nn.Conv2d):
-                    fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                    fan_out = m.kernel_size[0] * \
+                        m.kernel_size[1] * m.out_channels
                     fan_out //= m.groups
-                    normal_init(m, mean=0, std=math.sqrt(2.0 / fan_out), bias=0)
+                    normal_init(m, mean=0, std=math.sqrt(
+                        2.0 / fan_out), bias=0)
         else:
             super(MixVisionTransformer, self).init_weights()
 
     def reset_drop_path(self, drop_path_rate):
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
+        dpr = [x.item() for x in torch.linspace(
+            0, drop_path_rate, sum(self.depths))]
         cur = 0
         for i in range(self.depths[0]):
             self.block1[i].drop_path.drop_prob = dpr[cur + i]
@@ -510,7 +512,8 @@ class MixVisionTransformer(BaseModule):
     def reset_classifier(self, num_classes, global_pool=""):
         self.num_classes = num_classes
         self.head = (
-            nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+            nn.Linear(self.embed_dim,
+                      num_classes) if num_classes > 0 else nn.Identity()
         )
 
     def forward_features(self, x):
@@ -590,6 +593,7 @@ class mit_b0(MixVisionTransformer):
         )
 
 
+@BACKBONES.register_module()
 class mit_b1(MixVisionTransformer):
     def __init__(self, **kwargs):
         super(mit_b1, self).__init__(
@@ -892,7 +896,8 @@ class fcn(BaseModule):
                 mode="bilinear",
                 align_corners=False,
             )
-            self.conv_seg = nn.Conv2d(channels, num_classes, kernel_size=3, padding=1)
+            self.conv_seg = nn.Conv2d(
+                channels, num_classes, kernel_size=3, padding=1)
         else:
             self.conv_seg = nn.Conv2d(channels, num_classes, kernel_size=1)
         if dropout_ratio > 0:
@@ -1024,7 +1029,7 @@ class MixOC(BaseModule):
         super().__init__(init_cfg=init_cfg)
         if pretrained is not None:
             assert (
-                    backbone.get("pretrained") is None
+                backbone.get("pretrained") is None
             ), "both backbone and segmentor set pretrained weight"
             backbone["pretrained"] = pretrained
             print(backbone)

@@ -489,11 +489,11 @@ def _resnet(
         **kwargs: Any,
 ) -> ResNet:
     model = ResNet(block, layers, **kwargs)
-    # if pretrained:
-    #     print('load_backnone_weight_from {}'.format('/workspace/data/pretrained/resnet18-5c106cde.pth'))
-    #     # state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-    #     state_dict = torch.load('/workspace/data/pretrained/resnet18-5c106cde.pth')
-    #     model.load_state_dict(state_dict)
+    if pretrained:
+        print('load_backnone_weight_from {}'.format('/workspace/data/pretrained/resnet18-5c106cde.pth'))
+        # state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
+        state_dict = torch.load('/workspace/data/pretrained/resnet18-5c106cde.pth')
+        model.load_state_dict(state_dict)
     return model
 
 

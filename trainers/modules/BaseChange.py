@@ -43,6 +43,9 @@ class BaseChangeLite(LightningModule, ABC):
         # --------
         if isinstance(loss_decode, dict):
             self.loss_decode = build_losses(loss_decode)
+        elif isinstance(loss_decode, DictConfig):
+            loss_decode = OmegaConf.to_object(loss_decode)
+            self.loss_decode = build_losses(loss_decode)
         elif isinstance(loss_decode, (list, tuple)):
             self.loss_decode = nn.ModuleList()
             for loss in loss_decode:
@@ -53,7 +56,7 @@ class BaseChangeLite(LightningModule, ABC):
                 but got {type(loss_decode)}"
             )
         # --------
-        # self.model.init_weights()
+        self.model.init_weights()
 
         if CKPT:
             self._finetue(CKPT)
@@ -106,7 +109,8 @@ class BaseChangeLite(LightningModule, ABC):
         self.num_classes = 2
 
     def forward(self, img1, img2):
-        return self.model(img1, img2)
+        # return self.model(img1, img2)
+        return self.forward_dummy(img1, img2)
 
     def forward_dummy(self, img1, img2):
         """
@@ -141,25 +145,37 @@ class BaseChangeLite(LightningModule, ABC):
         x, y = batch["img1"], batch["img2"]  # b c h w
         seg_logits = self(x, y)
         # ------- losss
-        loss_change = cal_losses(
-            seg_logits, mask, self.loss_decode, align_corners=False, ignore_index=255)
+        if isinstance(seg_logits, (list, tuple)):
+            loss_change = dict()
+            main_seg = seg_logits[0]
+            loss_decode = cal_losses(
+                main_seg, mask, self.loss_decode, loss_weight=1, align_corners=False, ignore_index=255)
+            loss_change.update(add_prefix(loss_decode, "mian"))
+            for idx in range(1, len(seg_logits)):
+                loss_aux = cal_losses(
+                    seg_logits[idx], mask, self.loss_decode, loss_weight=0.2, align_corners=False, ignore_index=255)
+                loss_change.update(add_prefix(loss_aux, f"aux_{idx}"))
+        else:
+            loss_change = cal_losses(
+                seg_logits, mask, self.loss_decode, align_corners=False, ignore_index=255)
+
         loss, log_vars = _parse_losses(loss_change)
         log_vars = add_prefix(log_vars, "train")
         # ------- losss
         self.log_dict(log_vars, on_step=False,
                       on_epoch=True, prog_bar=False)
         # ------- log f1,iou
+        if isinstance(seg_logits, (list, tuple)):
+            seg_logits = seg_logits[0]
 
         seg_logits = align_size(seg_logits, mask)
         if mask.ndim == 4:
             mask = mask.squeeze(1)
         self.train_metrics(seg_logits.argmax(1), mask)
-        # # ------- log f1,iou
-        # print(log_vars)
-        # metrics = self.train_metrics.compute()
-        # log_vars = add_prefix(metrics, "train")
-        # print(log_vars)
-
+        metrics = self.train_metrics.compute()
+        log_vars = add_prefix(metrics, "train")
+        self.log_dict(log_vars, on_step=False, prog_bar=False, on_epoch=True)
+        self.train_metrics.reset()
         return {"loss": loss}
 
     def training_epoch_end(self, outputs: Any) -> None:
@@ -168,10 +184,11 @@ class BaseChangeLite(LightningModule, ABC):
         Args:
             outputs: list of items returned by training_step
         """
-        metrics = self.train_metrics.compute()
-        log_vars = add_prefix(metrics, "train")
-        self.log_dict(log_vars, prog_bar=False, sync_dist=True)
-        self.train_metrics.reset()
+        pass
+        # metrics = self.train_metrics.compute()
+        # log_vars = add_prefix(metrics, "train")
+        # self.log_dict(log_vars, prog_bar=False, sync_dist=True)
+        # self.train_metrics.reset()
 
     def validation_step(
             self, batch: Dict[str, Any], batch_idx: int
@@ -181,13 +198,28 @@ class BaseChangeLite(LightningModule, ABC):
         x, y = batch["img1"], batch["img2"]  # b c h w
         seg_logits = self(x, y)
         # ------- losss
-        loss_change = cal_losses(
-            seg_logits, mask, self.loss_decode, align_corners=False, ignore_index=255)
+        # ------- losss
+        if isinstance(seg_logits, (list, tuple)):
+            loss_change = dict()
+            main_seg = seg_logits[0]
+            loss_decode = cal_losses(
+                main_seg, mask, self.loss_decode, loss_weight=1, align_corners=False, ignore_index=255)
+            loss_change.update(add_prefix(loss_decode, "mian"))
+            for idx in range(1, len(seg_logits)):
+                loss_aux = cal_losses(
+                    seg_logits[idx], mask, self.loss_decode, loss_weight=0.2, align_corners=False, ignore_index=255)
+                loss_change.update(add_prefix(loss_aux, f"aux_{idx}"))
+        else:
+            loss_change = cal_losses(
+                seg_logits, mask, self.loss_decode, align_corners=False, ignore_index=255)
         _, log_vars = _parse_losses(loss_change)
         log_vars = add_prefix(log_vars, "val")
         # ------- losss
         self.log_dict(log_vars, on_step=False,
                       on_epoch=True, prog_bar=False)
+        # ------- log f1,iou
+        if isinstance(seg_logits, (list, tuple)):
+            seg_logits = seg_logits[0]
 
         seg_logits = align_size(seg_logits, mask)
         if mask.ndim == 4:

@@ -57,7 +57,7 @@
     <enum>Qt::LeftToRight</enum>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>1</number>
    </property>
    <widget class="QWidget" name="DetecOps">
     <attribute name="title">
@@ -171,7 +171,7 @@
         <item>
          <widget class="QgsFileWidget" name="mQgsFileWidget_ModelPath">
           <property name="filter">
-           <string>*.pth;*.pt;*.ckpt</string>
+           <string>*.pth;*.pt;*.ckpt;</string>
           </property>
          </widget>
         </item>
@@ -441,6 +441,19 @@
      </property>
      <property name="default">
       <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QgsFileWidget" name="mQgsFileWidget_USEEXE">
+     <property name="geometry">
+      <rect>
+       <x>124</x>
+       <y>320</y>
+       <width>141</width>
+       <height>27</height>
+      </rect>
+     </property>
+     <property name="filter">
+      <string>*.exe</string>
      </property>
     </widget>
    </widget>
@@ -766,7 +779,7 @@
        <item>
         <widget class="QgsFileWidget" name="mQfwDataset_ClassCfg">
          <property name="filter">
-          <string>&quot;*.yaml;*.yml&quot;</string>
+          <string>*.yaml;*.yml</string>
          </property>
         </widget>
        </item>

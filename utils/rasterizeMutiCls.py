@@ -45,6 +45,8 @@ def rasterizeMutiCls(ras_path, vec_path, outputRasIN, InsSegGDALout, color_text_
             if tblx in tblx_v:
                 feature.SetField("MLDS", col)
                 break  # 找到后跳出去
+            else:
+                feature.SetField("MLDS", colors_[0])
 
         lyr.SetFeature(feature)
         feature = None

@@ -25,7 +25,6 @@ import os.path
 import tempfile
 from typing import Union, List
 
-
 from PyQt5.QtCore import QThread
 # Initialize Qt resources from file resources.py
 from PyQt5.QtWidgets import (
@@ -34,7 +33,8 @@ from PyQt5.QtWidgets import (
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.core import (
-    QgsProject, QgsVectorLayer, QgsRasterLayer, Qgis, QgsMessageLog, QgsGeometry, QgsCoordinateReferenceSystem,QgsFeature,QgsMapLayer, QgsDistanceArea
+    QgsProject, QgsVectorLayer, QgsRasterLayer, Qgis, QgsMessageLog, QgsGeometry, QgsCoordinateReferenceSystem,
+    QgsFeature, QgsMapLayer, QgsDistanceArea
 )
 from qgis.gui import QgsFileWidget
 
@@ -101,7 +101,8 @@ class RSDlTool:
             if not exit_layer:
                 layer = QgsRasterLayer(path, os.path.splitext(os.path.basename(path))[0])
             else:
-                layer = QgsRasterLayer(path, os.path.splitext(os.path.basename(path))[0]+"_{}".format(os.urandom(2).hex()))
+                layer = QgsRasterLayer(path,
+                                       os.path.splitext(os.path.basename(path))[0] + "_{}".format(os.urandom(2).hex()))
             self.project.addMapLayer(layer)
             self.dlg.rDSACombo.setLayer(layer)
 
@@ -114,7 +115,8 @@ class RSDlTool:
             if not layer:
                 layer = QgsRasterLayer(path, os.path.splitext(os.path.basename(path))[0])
             else:
-                layer = QgsRasterLayer(path, os.path.splitext(os.path.basename(path))[0]+"_{}".format(os.urandom(2).hex()))
+                layer = QgsRasterLayer(path,
+                                       os.path.splitext(os.path.basename(path))[0] + "_{}".format(os.urandom(2).hex()))
             self.project.addMapLayer(layer)
             self.dlg.rDSBCombo.setLayer(layer)
 
@@ -131,9 +133,11 @@ class RSDlTool:
                     layer = QgsRasterLayer(path, os.path.splitext(os.path.basename(path))[0])
             else:
                 if ".shp" in path:
-                    layer = QgsVectorLayer(path, os.path.splitext(os.path.basename(path))[0]+"_{}".format(os.urandom(2).hex()))
+                    layer = QgsVectorLayer(path, os.path.splitext(os.path.basename(path))[0] + "_{}".format(
+                        os.urandom(2).hex()))
                 else:
-                    layer = QgsRasterLayer(path, os.path.splitext(os.path.basename(path))[0]+"_{}".format(os.urandom(2).hex()))
+                    layer = QgsRasterLayer(path, os.path.splitext(os.path.basename(path))[0] + "_{}".format(
+                        os.urandom(2).hex()))
             self.project.addMapLayer(layer)
             self.dlg.vDSCombo.setLayer(layer)
 
@@ -145,7 +149,8 @@ class RSDlTool:
         if not layer:
             layer = QgsVectorLayer(path, os.path.splitext(os.path.basename(path))[0])
         else:
-            layer = QgsVectorLayer(path, os.path.splitext(os.path.basename(path))[0]+"_{}".format(os.urandom(2).hex()))
+            layer = QgsVectorLayer(path,
+                                   os.path.splitext(os.path.basename(path))[0] + "_{}".format(os.urandom(2).hex()))
         self.project.addMapLayer(layer)
         self.dlg.vDSMaskCombo.setLayer(layer)
 
@@ -202,7 +207,7 @@ class RSDlTool:
     def calculate_aoi_area_layer_edited(self) -> None:
         # 暂时不用
         """Get the AOI size when a feature is added or remove from a layer."""
-        layer = self.sender() # bug
+        layer = self.sender()  # bug
         if layer == self.dlg.vDSMaskCombo.currentLayer():
             self.calculate_aoi_area_polygon_layer(layer)
 
@@ -373,7 +378,7 @@ class RSDlTool:
 
     def get_layer_path(self, mapLayerCombox):
         currentlayer = mapLayerCombox.currentText().split(" ")[0]
-        if len(currentlayer)<1:
+        if len(currentlayer) < 1:
             return ""
         rlayer = self.project.mapLayersByName(currentlayer)
         path = rlayer[0].dataProvider().dataSourceUri()
@@ -407,7 +412,7 @@ class RSDlTool:
         v_series_path = sorted(QgsFileWidget.splitFilePaths(v_series_path))
         a_ras_path = self.get_layer_path(self.dlg.rDSACombo)
         b_ras_path = self.get_layer_path(self.dlg.rDSBCombo) if self.dlg.useChangeCheck.isChecked() else None
-        vec_path = self.get_layer_path(self.dlg.vDSCombo) if self.dlg.checkBoxSB_2.isChecked() else None
+        vec_path = self.get_layer_path(self.dlg.vDSCombo) if self.dlg.checkBoxSB_2.isChecked() or self.dlg.checkBoxMutiCls_2.isChecked() else None
         mask_path = self.get_layer_path(self.dlg.vDSMaskCombo) if self.dlg.checkBoxMask.isChecked() else None
         classCfgPath = self.dlg.mQfwDataset_ClassCfg.filePath() if self.dlg.checkBoxMutiCls_2.isChecked() else None
         datasetOutDir = self.dlg.mQgsFileWidget_DatasetOut.filePath()
@@ -469,7 +474,8 @@ class RSDlTool:
         ui_params = dict(
             a_series_path=a_series_path,
             b_series_path=b_series_path,
-            useBatchCheck = self.dlg.useBatchCheck.isChecked(),
+            use_exe=self.dlg.mQgsFileWidget_USEEXE.filePath(),
+            useBatchCheck=self.dlg.useBatchCheck.isChecked(),
             useChangeDect=self.dlg.useChangeCheck.isChecked(),
             CfgPathName=self.dlg.mQgsFileWidget_CfgPath.filePath(),
             processing_name=self.dlg.processingName.text() + '_' + str(os.urandom(4).hex()),

@@ -12,3 +12,4 @@ from .losses._builder import (LOSSES, build_losses)
 #  为了引用 Registry
 from .layers import *
 from .DSAMNet import DSAMNet
+from .Uvasp3d import UVASPMuti

@@ -150,8 +150,8 @@ def cm2score(confusion_matrix):
     score_dict = {"acc": acc}
     score_dict.update(cls_iou)
     score_dict.update(cls_F1)
-    score_dict.update(cls_precision)
-    score_dict.update(cls_recall)
+    # score_dict.update(cls_precision)
+    # score_dict.update(cls_recall)
 
     return score_dict
 

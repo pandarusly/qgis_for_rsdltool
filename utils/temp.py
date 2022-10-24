@@ -12,10 +12,14 @@ def load_jit_model(MODEL_PATH, device, MODEL_CFG=None, half_infer=False):
         abspath = os.path.abspath(__file__)
         dname = os.path.dirname((abspath))
         dname = os.path.dirname((dname))
+        sys.path.append(abspath)
         sys.path.append(dname)
+        print(dname)
         import hydra
-        # MODEL_CFG['Config']['MODEL']['pretrained'] = None
-        MODEL_CFG['Config']['MODEL']['backbone']['init_cfg'] = None
+        if MODEL_CFG['Config']['MODEL'].get('backbone'):
+            MODEL_CFG['Config']['MODEL']['backbone']['init_cfg'] = None
+        else:
+            MODEL_CFG['Config']['MODEL']['pretrained'] = None
         model = hydra.utils.instantiate(MODEL_CFG, _convert_="all")
         ckpt = torch.load(MODEL_PATH, map_location=device)
         if isinstance(ckpt, dict):
@@ -35,9 +39,16 @@ def load_jit_model(MODEL_PATH, device, MODEL_CFG=None, half_infer=False):
     return model, device
 
 
-MODEL_PATH = r'F:\study-note\python-note\Advance_py\DLDEV\Task-36869338\代码截图\代码截图\论文代码\log\LeVirCd\MDACN\2022-07-25_11-45-23\checkpoints\mdac_f10.9227.ckpt'
-CFG_PATH = r'F:\study-note\python-note\Advance_py\DLDEV\Task-36869338\代码截图\代码截图\论文代码\log\LeVirCd\MDACN\2022-07-25_11-45-23\tensorboard\da\hparams.yaml'
+MODEL_PATH = r'C:\Users\admin\Pictures\权重\雄安建筑物数据集\UVA\UVAtrain1\checkpoints\epoch_066_f10.777.ckpt'
+CFG_PATH = r'C:\Users\admin\Pictures\权重\雄安建筑物数据集\UVA\UVAtrain1\csv\uva_0809_building\hparams.yaml'
 MODEL_CFG = OmegaConf.to_object(OmegaConf.load(CFG_PATH).model)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 model, device = load_jit_model(MODEL_PATH, device, MODEL_CFG, half_infer=False)
-from trainers.modules.BaseChange import BaseChangeLite
+
+x = torch.randn(1, 3, 256, 256).to(device)
+
+pred = model(x, x)
+print(pred.shape)
+
+# C:\Users\admin\Pictures\权重\雄安建筑物数据集\UVA\UVAtrain1\checkpoints\epoch_066_f10.777.ckpt
+# C:\Users\admin\Pictures\权重\雄安建筑物数据集\UVA\UVAtrain1\csv\uva_0809_building\hparams.yaml

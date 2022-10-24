@@ -62,8 +62,8 @@ def _parse_losses(losses):
     return loss, log_vars
 
 
-from torchmetrics import (MetricCollection, Accuracy,
-                          FBetaScore, Precision, Recall)
+# from torchmetrics import (MetricCollection, Accuracy,
+#                           FBetaScore, Precision, Recall)
 
 from trainers.utils.binary import ConfuseMatrixMeter
 

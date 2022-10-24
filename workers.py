@@ -2,11 +2,13 @@ import os
 import tempfile
 from typing import Dict, Any, Union, List
 
-import processing
 from PyQt5.QtCore import QObject, pyqtSignal
 from omegaconf import OmegaConf
-
+import processing
+from processing.core.Processing import Processing
 from .config import InferConfig
+
+
 # from .utils import del_dir, get_path_from_yaml, rasterize, rasterizeMutiCls, splitting, full_flow
 
 
@@ -19,13 +21,14 @@ def clip_raster_by_mask(temp_dir, a_ras_path, mkdir_p, mask_path=r''):
                 'MASK': mask_path, 'NODATA': None, 'ALPHA_BAND': False,
                 'CROP_TO_CUTLINE': True, 'KEEP_RESOLUTION': True, 'OPTIONS': 'COMPRESS=LZW', 'DATA_TYPE': 0,
                 'OUTPUT': temp_clip_name_a}
+    Processing.initialize()
     result = processing.run('gdal:cliprasterbymasklayer', params_a)
     return temp_clip_name_a
 
 
 def diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, classCfgPath,
                   SplittingBlockSize, SplittingStrideSize, uniform_name, mkdir_p,
-                  temp_dir, color_text_path, youhua
+                  temp_dir, color_text_path, youhua, checkBoxSB_2
                   ):
     from .utils.rasterize import rasterize
     from .utils.splitting import splitting
@@ -58,21 +61,18 @@ def diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, cl
                       "muticlass": "",
                       }
     # ----- raseterize binary
-    if vec_path is not None:
-        if 'shp' in vec_path:
-            output = os.path.join(
-                Ras_Paddle_path, uniform_name + "_rasterized" + ".tif" if len(
-                    uniform_name) > 0 else currentrasterlayA + "_rasterized" + ".tif"
-            )  # Output Rasterized File
-
-            rasterize(a_ras_path, vec_path, output)
-        else:
-            output = vec_path
+    if checkBoxSB_2:
+        if vec_path is not None:
+            if 'shp' in vec_path:
+                output = os.path.join(
+                    Ras_Paddle_path, uniform_name + "_rasterized" + ".tif" if len(
+                        uniform_name) > 0 else currentrasterlayA + "_rasterized" + ".tif"
+                )  # Output Rasterized File
+                rasterize(a_ras_path, vec_path, output)
+            else:
+                output = vec_path
             output = clip_raster_by_mask(temp_dir, output, mkdir_p, mask_path) if mask_path is not None else output
-            if classCfgPath is not None:
-                print(" Rasterize Only Support SHPfile!")
-                return
-        rasterize_path["binary"] = output
+            rasterize_path["binary"] = output
 
     # ----- raseterize  muticlass
     if classCfgPath is not None:
@@ -84,6 +84,10 @@ def diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, cl
         outputRasIN = os.path.join(
             Ras_Paddle_path, uniform_name + "_1_255_rasterized" + ".tif" if len(
                 uniform_name) > 0 else currentrasterlayA + "_1_255_rasterized" + ".tif")
+
+        outputRasIN = clip_raster_by_mask(temp_dir, outputRasIN, mkdir_p,
+                                          mask_path) if mask_path is not None else outputRasIN
+
         InsSegGDALout = os.path.join(
             Ras_Paddle_path, uniform_name + "_muti_class_rasterized" + ".tif" if len(
                 uniform_name) > 0 else currentrasterlayA + "_muti_class_rasterized" + ".tif")
@@ -117,7 +121,9 @@ def diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, cl
             youhua=youhua
         )
     # --split binary label
-    if vec_path is not None:
+    # if vec_path is not None:
+    if checkBoxSB_2:
+        print("split binary----------------------------------")
         splitting(
             output,
             label_Paddle_path,
@@ -131,7 +137,9 @@ def diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, cl
         )  # should be the same name of image. vector name if needed-> currentvectorlay
 
     # --- spliting Multiclass Label
+
     if classCfgPath is not None:
+        print("split muti----------------------------------")
         splitting(
             outputRasIN,
             muti_Lable_Paddle_path,
@@ -175,62 +183,47 @@ def create_splitting(
         print('processing {}/{} file {} ...'.format(1, 1, a_ras_path))
         rasterize_path = diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, classCfgPath,
                                        SplittingBlockSize, SplittingStrideSize, uniform_name, mkdir_p, temp_dir,
-                                       color_text_path, youhua)
+                                       color_text_path, youhua, checkBoxSB_2)
         show_list.append(rasterize_path)
     else:
-        if checkBoxSB_2:
-            if len(v_series_path) != len(a_series_path):
-                print("image: {},label:{} not equal".format(len(a_series_path), len(v_series_path)))
-                return
-            if not useChangeCheck:
-                idx = 0
-                for image, label in zip(a_series_path, v_series_path):
-                    print('processing {}/{} file {} ...'.format(idx + 1, len(a_series_path), image))
-                    idx += 1
-                    if "yml" in image or "yaml" in image:
-                        from .utils.msic import get_path_from_yaml
-                        A = get_path_from_yaml(image)
-                        V = get_path_from_yaml(label)
-                        if not len(A) == len(V):
-                            print("image: {},label:{} not equal".format(len(A), len(V)))
-                            return
-                        for a, v in zip(A, V):
-                            uniform_name_temp = uniform_name
-                            if len(uniform_name) > 2:
-                                uniform_name = uniform_name + str(os.urandom(3).hex())
-                            rasterize_path = diag_spliting(a, None, v, mask_path, datasetOutDir, classCfgPath,
-                                                           SplittingBlockSize, SplittingStrideSize, uniform_name,
-                                                           mkdir_p,
-                                                           temp_dir,
-                                                           color_text_path, youhua)
-                            show_list.append(rasterize_path)
-                            uniform_name = uniform_name_temp
-                    else:
+        if len(v_series_path) != len(a_series_path):
+            print("image: {},label:{} not equal".format(len(a_series_path), len(v_series_path)))
+            return
+        if not useChangeCheck:
+            idx = 0
+            for image, label in zip(a_series_path, v_series_path):
+                print('processing {}/{} file {} ...'.format(idx + 1, len(a_series_path), image))
+                idx += 1
+                if "yml" in image or "yaml" in image:
+                    from .utils.msic import get_path_from_yaml
+                    A = get_path_from_yaml(image)
+                    V = get_path_from_yaml(label)
+                    if not len(A) == len(V):
+                        print("image: {},label:{} not equal".format(len(A), len(V)))
+                        return
+                    for a, v in zip(A, V):
                         uniform_name_temp = uniform_name
                         if len(uniform_name) > 2:
                             uniform_name = uniform_name + str(os.urandom(3).hex())
-                        rasterize_path = diag_spliting(image, None, label, mask_path, datasetOutDir, classCfgPath,
-                                                       SplittingBlockSize, SplittingStrideSize, uniform_name, mkdir_p,
+                        rasterize_path = diag_spliting(a, None, v, mask_path, datasetOutDir, classCfgPath,
+                                                       SplittingBlockSize, SplittingStrideSize, uniform_name,
+                                                       mkdir_p,
                                                        temp_dir,
-                                                       color_text_path, youhua)
+                                                       color_text_path, youhua, checkBoxSB_2)
                         show_list.append(rasterize_path)
                         uniform_name = uniform_name_temp
+                else:
+                    uniform_name_temp = uniform_name
+                    if len(uniform_name) > 2:
+                        uniform_name = uniform_name + str(os.urandom(3).hex())
 
+                    rasterize_path = diag_spliting(image, None, label, mask_path, datasetOutDir, classCfgPath,
+                                                   SplittingBlockSize, SplittingStrideSize, uniform_name, mkdir_p,
+                                                   temp_dir,
+                                                   color_text_path, youhua, checkBoxSB_2)
+                    show_list.append(rasterize_path)
+                    uniform_name = uniform_name_temp
         else:
-            idx = 0
-            for image in a_series_path:
-                print('processing {}/{} file {} ...'.format(idx + 1, len(a_series_path), image))
-                idx += 1
-                uniform_name_temp = uniform_name
-                if len(uniform_name) > 2:
-                    uniform_name = uniform_name + str(os.urandom(3).hex())
-                rasterize_path = diag_spliting(image, None, None, mask_path, datasetOutDir, classCfgPath,
-                                               SplittingBlockSize, SplittingStrideSize, uniform_name, mkdir_p, temp_dir,
-                                               color_text_path, youhua)
-                show_list.append(rasterize_path)
-                uniform_name = uniform_name_temp
-
-        if useChangeCheck and checkBoxSB_2:
             if len(b_series_path) != len(a_series_path):
                 print("image: {},post-image:{} not equal".format(len(a_series_path), len(b_series_path)))
                 return
@@ -239,6 +232,7 @@ def create_splitting(
                 print('processing {}/{} file {} ...'.format(idx + 1, len(a_series_path), image))
                 idx += 1
                 if "yml" in image or "yaml" in image:
+                    from .utils.msic import get_path_from_yaml
                     A = get_path_from_yaml(image)
                     B = get_path_from_yaml(imageB)
                     V = get_path_from_yaml(label)
@@ -252,7 +246,7 @@ def create_splitting(
                         rasterize_path = diag_spliting(a, b, v, mask_path, datasetOutDir, classCfgPath,
                                                        SplittingBlockSize, SplittingStrideSize, uniform_name, mkdir_p,
                                                        temp_dir,
-                                                       color_text_path, youhua)
+                                                       color_text_path, youhua, checkBoxSB_2)
                         show_list.append(rasterize_path)
                         uniform_name = uniform_name_temp
                 else:
@@ -262,9 +256,11 @@ def create_splitting(
                     rasterize_path = diag_spliting(image, imageB, label, mask_path, datasetOutDir, classCfgPath,
                                                    SplittingBlockSize, SplittingStrideSize, uniform_name, mkdir_p,
                                                    temp_dir,
-                                                   color_text_path, youhua)
+                                                   color_text_path, youhua, checkBoxSB_2)
                     show_list.append(rasterize_path)
                     uniform_name = uniform_name_temp
+
+    from .utils.msic import del_dir
     del_dir(os.path.join(datasetOutDir))
     return show_list
 
@@ -321,9 +317,22 @@ def single_dection(mask_path: str, rasterComboA: List, rasterComboB: Union[List,
     cfg.PNAME = [os.path.join(target_root, sa_name) for sa_name in save_name]
     cfg.PRE_IMG = rasterComboA
     cfg.POST_IMG = rasterComboB if useChangeDect else None
-    cfg = OmegaConf.to_object(cfg)
-    from .utils.inference_changedetection import full_flow
-    full_flow(cfg)
+
+    if os.path.exists(cfg.USE_EXE):
+        print('use exe in path :{}'.format(cfg.USE_EXE))
+        exe_dir = os.path.dirname(cfg.USE_EXE)
+        import sys
+        sys.path.append(exe_dir) if exe_dir not in sys.path else None
+        temp_configfile = os.path.join(target_root, 'config.yaml')
+        # OmegaConf.to_yaml(cfg)
+        print(cfg)
+        OmegaConf.save(cfg, temp_configfile)
+        command1 = "{} config_file={}".format(cfg.USE_EXE, temp_configfile)
+        os.system(command1)
+    else:
+        cfg = OmegaConf.to_object(cfg)
+        from .utils.inference_changedetection import full_flow
+        full_flow(cfg)
 
     for name in save_name:
         show_path.append(
@@ -334,7 +343,7 @@ def single_dection(mask_path: str, rasterComboA: List, rasterComboB: Union[List,
 def create_detection(
         useChangeDect, CfgPathName, processing_name, modelPathName, rasterComboA, rasterComboB, targetDirName,
         checkSHPBox, checkPNGBox, checkHALFBox, STRIDE_SIZE, BLOCKSIZE, BATCHSIZE, USECUDA, WEIGHT, maxval,
-        simplify_ratiao, mask_path, useBatchCheck, a_series_path, b_series_path
+        simplify_ratiao, mask_path, useBatchCheck, a_series_path, b_series_path, use_exe
 ):
     show_lists = []
     cfg = OmegaConf.create(InferConfig)
@@ -347,6 +356,7 @@ def create_detection(
     cfg.MODEL_PATH = modelPathName
 
     cfg.SAVE_SHP = checkSHPBox
+    cfg.USE_EXE = use_exe
     cfg.SAVE_PNG = checkPNGBox
     cfg.HalfINFER = checkHALFBox
     cfg.STRIDE_SIZE = int(STRIDE_SIZE)
@@ -368,6 +378,7 @@ def create_detection(
     else:
         temp_list_a = []
         temp_list_b = []
+        b_series_path = b_series_path if useChangeDect else ['' for x in a_series_path]
         for image, imageB in zip(a_series_path, b_series_path):
             if "yml" in image or "yaml" in image:
                 from .utils.msic import get_path_from_yaml

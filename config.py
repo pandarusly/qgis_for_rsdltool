@@ -1,5 +1,6 @@
 PLUGIN_NAME = "RSDLTool"
 InferConfig = dict(
+    USE_EXE='',
     MODEL_CFG=None,
     model=None,
     MODEL_PATH=r"F:\study-note\python-note\Advance_py\DLDEV\Task-36869338\代码截图\代码截图\论文代码\mmchange\huanjing_mixuper.pt",
@@ -18,4 +19,4 @@ InferConfig = dict(
     maxval=255,
     PolyDP=1,
     simplify_ratiao=1
-    )
+)

@@ -86,7 +86,8 @@ class SegLitChangeDetection(LightningModule, ABC):
         super().__init__()
 
         Config = OmegaConf.create(Config)
-        self.save_hyperparameters(Config, logger=HPARAMS_LOG)  # True在hydra下运行不起来
+        self.save_hyperparameters(
+            Config, logger=HPARAMS_LOG)  # True在hydra下运行不起来
         self.lr = self.hparams.TRAIN.BASE_LR
         self.CKPT = CKPT
         self.example_input_array = (
@@ -112,8 +113,8 @@ class SegLitChangeDetection(LightningModule, ABC):
         if isinstance(model, DictConfig):
             model = OmegaConf.to_object(model)
         self.model = build_segmentor(model)
-        if not self.CKPT:
-            self.model.init_weights()
+        # if not self.CKPT:
+            # self.model.init_weights()
         self.num_classes = self.model.num_classes
 
     def _finetue(self, ckpt_path):
@@ -252,24 +253,28 @@ class BoringSegLitChangeDetection(SegLitChangeDetection):
 
     def train_dataloader(self):
         return DataLoader(
-            RandomDictDataset(size=self.size, num_classes=self.num_classes, length=64),
+            RandomDictDataset(
+                size=self.size, num_classes=self.num_classes, length=64),
             batch_size=2,
         )
 
     def val_dataloader(self):
         return DataLoader(
-            RandomDictDataset(size=self.size, num_classes=self.num_classes, length=32),
+            RandomDictDataset(
+                size=self.size, num_classes=self.num_classes, length=32),
             batch_size=2,
         )
 
     def test_dataloader(self):
         return DataLoader(
-            RandomDictDataset(size=self.size, num_classes=self.num_classes, length=64),
+            RandomDictDataset(
+                size=self.size, num_classes=self.num_classes, length=64),
             batch_size=2,
         )
 
     def predict_dataloader(self):
         return DataLoader(
-            RandomDictDataset(size=self.size, num_classes=self.num_classes, length=64),
+            RandomDictDataset(
+                size=self.size, num_classes=self.num_classes, length=64),
             batch_size=2,
         )

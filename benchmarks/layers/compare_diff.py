@@ -1,5 +1,5 @@
 import torch.nn as nn
-# from timm.models.layers import create_attn
+from timm.models.layers import create_attn
 
 from benchmarks._builder import CHANGES
 

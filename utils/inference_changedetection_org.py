@@ -37,7 +37,7 @@ def polygonized(src_ds, dst_shpfile, simp_dst_shpfile, simplify_ratiao=1):
     shp_dr = ogr.GetDriverByName("ESRI Shapefile")
 
     band = src_ds.GetRasterBand(1)  # 0，1
-    # width, height = band.XSize, band.YSize
+    width, height = band.XSize, band.YSize
     srs = osr.SpatialReference()
     srs.ImportFromWkt(src_ds.GetProjectionRef())
 
@@ -58,107 +58,10 @@ def polygonized(src_ds, dst_shpfile, simp_dst_shpfile, simplify_ratiao=1):
     #         # print(simplify_geom)
     #         in_feat.SetGeometry(polygon)
     #         layer.SetFeature(in_feat)
-    # 创建结果Geojson 
-    json_driver = ogr.GetDriverByName('GeoJSON')
-    json_ds = json_driver.CreateDataSource(dst_shpfile.replace('.shp','.json'))
-   
-    json_lyr = json_ds.CreateLayer('Result', layer.GetSpatialRef()) 
-    # -------------
-    fieldname = ogr.FieldDefn("class_name", ogr.OFTString)
-    json_lyr.CreateField(fieldname)
-    fieldname = ogr.FieldDefn("segment", ogr.OFTInteger)
-    json_lyr.CreateField(fieldname)
-    # -------------  
-    for feature in layer: 
-        geom = feature.GetGeometryRef() 
-        json_feat = ogr.Feature(json_lyr.GetLayerDefn())
-        json_feat.SetGeometry(geom)  
- 
-        if feature.GetField('segment') == 1:
-            json_feat.SetField("class_name", "建筑物变化")
-            json_feat.SetField("segment", 1)
-        elif feature.GetField('segment') == 2:
-            json_feat.SetField("class_name", "推填土变化")
-            json_feat.SetField("segment", 2)
-        elif feature.GetField('segment') == 3:
-            json_feat.SetField("class_name", "道路变化")
-            json_feat.SetField("segment", 3)
- 
-        json_lyr.CreateFeature(json_feat) 
-        
-    json_ds.Destroy()
-
     datasource.Destroy()
-
-
-
-    
     print("---------complete polygonized!------------------")
 
 
-
-@get_time("polygonizedAndGeojson")
-def polygonizedAndGeojson(src_ds, dst_shpfile, *args, **kwargs):
-    print("---------start polygonizedAndGeojson!------------------")
-    gdal.SetConfigOption("GDAL_FILENAME_IS_UTF8", "YES") 
-    gdal.SetConfigOption("SHAPE_ENCODING", "GBK")
-    ogr.RegisterAll()
-
-    shp_dr = ogr.GetDriverByName("ESRI Shapefile")
-
-    band = src_ds.GetRasterBand(1)  # 0，1 
-    srs = osr.SpatialReference()
-    srs.ImportFromWkt(src_ds.GetProjectionRef())
- 
-    shp_ds = shp_dr.CreateDataSource(dst_shpfile)
-    shp_lyr = shp_ds.CreateLayer('Result', srs, ogr.wkbPolygon)
-    fieldDefn = ogr.FieldDefn('segment', ogr.OFTInteger)
-    shp_lyr.CreateField(fieldDefn, 1)
-    gdal.Polygonize(band, band, shp_lyr, 0)
- 
-
-    # 创建结果Geojson 
-    json_driver = ogr.GetDriverByName('GeoJSON')
-    json_ds = json_driver.CreateDataSource(dst_shpfile.replace('.shp','.json'))
-   
-    json_lyr = json_ds.CreateLayer('Result', shp_lyr.GetSpatialRef()) 
-    # -------------
-    fieldname = ogr.FieldDefn("class_name", ogr.OFTString)
-    json_lyr.CreateField(fieldname)
-    fieldname = ogr.FieldDefn("segment", ogr.OFTInteger)
-    json_lyr.CreateField(fieldname)
-    # -------------
-      
-    for feature in shp_lyr: 
-        geom = feature.GetGeometryRef() 
-        json_feat = ogr.Feature(json_lyr.GetLayerDefn())
-        json_feat.SetGeometry(geom)  
- 
-        if feature.GetField('segment') == 1:
-            json_feat.SetField("class_name", "建筑物变化")
-            json_feat.SetField("segment", 1)
-        elif feature.GetField('segment') == 2:
-            json_feat.SetField("class_name", "推填土变化")
-            json_feat.SetField("segment", 2)
-        elif feature.GetField('segment') == 3:
-            json_feat.SetField("class_name", "道路变化")
-            json_feat.SetField("segment", 3)
- 
-        json_lyr.CreateFeature(json_feat) 
-      
-
-    json_ds.Destroy()
-    shp_ds.Destroy()
-
-
-    # ---删除 shp附属文件
-    # os.remove(dst_shpfile)
-    # os.remove(dst_shpfile.replace('.shp','.shx'))
-    # os.remove(dst_shpfile.replace('.shp','.prj'))
-    # os.remove(dst_shpfile.replace('.shp','.dbf'))
-    print("---------complete polygonized!------------------")
-    return dst_shpfile.replace('.shp','.json')
- 
 @get_time("load model")
 def load_jit_model(MODEL_PATH, device, MODEL_CFG=None, half_infer=False):
     print("---------start load_model!------------------")
@@ -318,35 +221,6 @@ def gdal_cd_inference(RSImage, RSImage_another, model,
     return mem_ds
 
 
-def cv2_post_dealv2(img, class_nums=4):
-    """这里假设预测结果已经保存在名为 prediction.png 的文件中，且分为了背景、物体1、物体2 和物体3 四类。我们首先使用中值滤波去除噪声，然后使用 OpenCV 提供的 connectedComponentsWithStats 函数进行连通性检测，将不同物体之间的分割线断开。
-    """
-    h, w = img.shape[0], img.shape[1] 
-    # 去噪
-    # img = cv2.medianBlur(img, 5)
-    # 定义开运算结构元素，可以根据实际情况调整大小
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13, 13))
-    kernel = np.ones((3, 3), np.uint8)
-    # 遍历每个类别的标签图进行处理
-    for i in range(1, class_nums):
-        # 创建一个只包含当前类别的掩膜图像
-        if i==2:
-            mask = np.uint8(img == i) * 255 
-            contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            for j in range(len(contours)):
-                area = cv2.contourArea(contours[j])
-                if area > 500:  # 设定筛选阈值，可根据实际情况调整
-                    cv2.drawContours(mask, [contours[j]], -1, 0, -1)
-            # 对掩膜图像执行开运算操作
-            # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-            # mask = cv2.dilate(mask, kernel)  # 膨胀
-            # mask = cv2.erode(mask, kernel)   # 腐蚀
-            # 将处理后的掩膜图像重新合并到原始图像中
-            img = np.where(mask == 255, 3, img)
-
-
-    return img
-
 @get_time('total')
 def full_flow(cfg):
 
@@ -402,7 +276,7 @@ def full_flow(cfg):
 
         BASENAME = os.path.basename(PNAME).split('.')[0]
         DIRNAME = os.path.dirname(PNAME)
-        PNGPATH = os.path.join(DIRNAME, BASENAME + '.tif')
+        PNGPATH = os.path.join(DIRNAME, BASENAME + '.png')
         SHPPATH = os.path.join(DIRNAME, BASENAME)
         dst_shpfile = SHPPATH + '.shp'
         if not os.path.exists(DIRNAME):
@@ -410,22 +284,12 @@ def full_flow(cfg):
         # # # ----------------------------------- 保存普通图片
         if cfg["SAVE_PNG"]:
             print("---------start save png!-----------------")
-            ct = gdal.ColorTable()
-            NLCD_COLORMAP = {
-                0: (0, 0, 0, 255),
-                1: (31, 119, 180, 255),
-                2: (174, 199, 232, 255),
-                3: (255, 127, 14, 255),
-            }
-            for key in NLCD_COLORMAP.keys():
-                ct.SetColorEntry(key, NLCD_COLORMAP[key])
-            mem_ds.GetRasterBand(1).SetRasterColorTable(ct) 
-            # save_to_PNG(mem_ds,PNGPATH)
             merged = mem_ds.ReadAsArray()
-            merged = cv2_post_dealv2(merged,class_nums=4)
+            merged = cv2_post_deal(
+                merged, maxval=cfg['maxval'], PolyDP=cfg['PolyDP'])
             mem_ds.GetRasterBand(1).WriteArray(merged)
-            # drv = gdal.GetDriverByName("PNG")
-            drv = gdal.GetDriverByName("GTiff")
+            drv = gdal.GetDriverByName("PNG")
+            # drv = gdal.GetDriverByName("GTiff")
             dst_ds = drv.CreateCopy(PNGPATH, mem_ds)
             # dst_ds = drv.CreateCopy(PNGPATH.replace('png','tif'), mem_ds)
             dst_ds = None
@@ -437,19 +301,7 @@ def full_flow(cfg):
             simp_dst_shpfile = SHPPATH + '_simplyfie.shp'
             polygonized(mem_ds, dst_shpfile, simp_dst_shpfile,
                         simplify_ratiao=cfg['simplify_ratiao'])
-            # json_file = polygonizedAndGeojson(mem_ds,PNGPATH.replace('.png','.shp'))
-            # with open(json_file, 'r', encoding='utf-8') as f: 
-            #     content = json.load(f)
-            # for id, feature in enumerate(content['features']): #extract the geometry from the feature 
-            #     geometry = feature['geometry'] #create a shapely object from the geometry 
-            #     shape = shapely.geometry.shape(geometry) #simplify the shape with a tolerance of 0.001
-            #     simplified_shape = shape.simplify(tolerance=0.0001) #add the simplified shape to the empty list 
-            #     # simplified_data.append(simplified_shape) 
-            #     simplified_shape = shapely.to_geojson(simplified_shape) # str -> dict
-            #     simplified_shape=json.loads(simplified_shape)
-            #     content['features'][id]['geometry']  = simplified_shape
-            # with open(simp_dst_shpfile.replace(".shp",".json"), 'w') as f:
-            #     json.dump(content, f)  # 编码JSON数据 
+
 
 if __name__ == '__main__':
 

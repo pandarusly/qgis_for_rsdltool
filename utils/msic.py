@@ -39,39 +39,37 @@ def del_dir(path):
         # 遍历文件
         for f in files:
             file = os.path.join(root, f)
-            if os.path.getsize(file) == 0 or "aux.xml" in file:  # 文件大小为0
+            if "aux.xml" in file:  # 文件大小为0
                 os.remove(file)  # 删除这个文件
+ 
+    parent_directory = path #用于在一个文件夹下的一级目录中仅保留具有相同文件名的文件。请注意，该脚本假定这些目录中只有一种文件类型。
+    subdir_names = ['A', 'B', 'label']
 
-    dirs_temp = os.listdir(path)
-    dirs = []
-    for d in dirs_temp:
-        if d == 'rasterized':
-            continue
-        dirs.append(os.path.join(path, d))  # 获得比较的文件目录
-    compared_list = []
+    # 获取所有一级子目录 
+    subdirs = [os.path.join(parent_directory, d)  for d in subdir_names if os.path.isdir(os.path.join(parent_directory, d))]
+ 
 
-    def getBaseName(paths):
-        return [os.path.splitext(base_path)[0] for base_path in paths]
-    for d in dirs:
-        compared_list.append(getBaseName(os.listdir(d)))
-    diff_list = set()
-    if len(compared_list) > 1:
-        base = compared_list[0]
-        for i in range(1, len(compared_list)):
-            diff = set(base).difference(set(compared_list[i]))
-            diff_list = diff_list | diff
-        diff_list = sorted(list(diff_list))
+    # 获取每个子目录中的文件名（不包括扩展名）
+    file_sets = []
+    for subdir in subdirs: 
+        file_set = set(os.path.splitext(file)[0] for file in os.listdir(subdir))
+        file_sets.append(file_set)
 
-    diff_list = list(diff_list)
+    # 找到相同的文件名
+ 
+    common_files = set.intersection(*file_sets)
+    
 
-    if len(diff_list) > 0:
-        for (root, dirs, files) in os.walk(path):
-            for f in files:
-                file = os.path.join(root, f)
-                if os.path.splitext(f)[0] in diff_list:  # 文件大小为0
-                    os.remove(file)  # 删除这个文件
+    # 删除不匹配的文件
+    for subdir in subdirs:
+        for file in os.listdir(subdir):
+            # if "raster" in subdir:
+            #     continue
+            filename, file_extension = os.path.splitext(file)
+            if filename not in common_files:
+                os.remove(os.path.join(subdir, file))
 
-    return diff_list
+    return None
 
 
 def get_path_from_yaml(path):

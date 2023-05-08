@@ -1,17 +1,12 @@
 import math
 import warnings
+
 import numpy as np
 from torch import nn
+from torch.optim.lr_scheduler import (CosineAnnealingWarmRestarts,
+                                      ExponentialLR, LambdaLR, MultiStepLR,
+                                      ReduceLROnPlateau, StepLR, _LRScheduler)
 from torch.optim.optimizer import Optimizer
-from torch.optim.lr_scheduler import (
-    _LRScheduler,
-    LambdaLR,
-    ExponentialLR,
-    StepLR,
-    MultiStepLR,
-    ReduceLROnPlateau,
-    CosineAnnealingWarmRestarts,
-)
 
 __all__ = [
     "GradualWarmupScheduler",
@@ -334,7 +329,6 @@ if __name__ == "__main__":
     # print(mpl.get_backend())
     #  ['GTK3Agg', 'GTK3Cairo', 'GTK4Agg', 'GTK4Cairo', 'MacOSX', 'nbAgg', 'QtAgg', 'QtCairo', 'Qt5Agg', 'Qt5Cairo', 'TkAgg', 'TkCairo', 'WebAgg', 'WX', 'WXAgg', 'WXCairo', 'agg', 'cairo', 'pdf', 'pgf', 'ps', 'svg', 'template']
     import matplotlib.pyplot as plt
-
     from torch.optim import SGD, Optimizer
 
     net = nn.Conv2d(1, 1, 1)
@@ -361,7 +355,7 @@ if __name__ == "__main__":
                     NAME='step',
                     DECAY_RATE=0.8,
                     DECAY_EPOCHS=10,
-                    GAMMA=0.99
+                    GAMMA=0.9
                 )
             )
         )

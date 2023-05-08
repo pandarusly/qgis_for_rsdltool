@@ -116,7 +116,7 @@ def splitting(fn_ras, cdpath, frmt_ext, imgfrmat, scaleoptions, cropsize, stride
     idx = 0
     for i in range(rows_max + 1):
         for j in range(columns_max + 1):
-            # print('processing {}/{} file ...'.format(idx + 1, columns_max * rows_max))
+            print('processing {}/{} file ...'.format(idx + 1, columns_max * rows_max))
             idx += 1
             x_off = width - cropsize if j == columns_max else j * stridesize
             y_off = height - cropsize if i == rows_max else i * stridesize

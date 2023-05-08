@@ -34,6 +34,7 @@ def diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, cl
     from .utils.splitting import splitting
     from .utils.rasterizeMutiCls import rasterizeMutiCls
     currentrasterlayA = os.path.splitext(os.path.basename(a_ras_path))[0]
+    
     if mask_path is not None:  # if b_ras_path vec_path classCfgPath mask_path
         if not os.path.exists(mask_path):
             print("mask layer doesn't exist")
@@ -56,7 +57,17 @@ def diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, cl
     mkdir_p(imageB_Paddle_path)
     mkdir_p(label_Paddle_path)
     mkdir_p(muti_Lable_Paddle_path)
-
+    splitting(
+        a_ras_path,
+        imageA_Paddle_path,
+        "jpg",
+        "JPEG",
+        "",
+        SplittingBlockSize,
+        SplittingStrideSize,
+        uniform_name if len(uniform_name) > 0 else currentrasterlayA,
+        youhua=youhua
+    )
     rasterize_path = {"binary": "",
                       "muticlass": "",
                       }
@@ -96,17 +107,7 @@ def diag_spliting(a_ras_path, b_ras_path, vec_path, mask_path, datasetOutDir, cl
                          InsSegGDALout, color_text_path, class_cfg_path)
         rasterize_path["binary"] = InsSegGDALout
 
-    splitting(
-        a_ras_path,
-        imageA_Paddle_path,
-        "jpg",
-        "JPEG",
-        "",
-        SplittingBlockSize,
-        SplittingStrideSize,
-        uniform_name if len(uniform_name) > 0 else currentrasterlayA,
-        youhua=youhua
-    )
+
     # --split post-time image
     if b_ras_path is not None:
         splitting(
